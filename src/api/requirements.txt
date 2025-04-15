@@ -1,0 +1,13 @@
+fastapi
+pydantic
+python-dotenv
+azure-ai-projects
+azure-identity
+uvicorn
+gunicorn
+pandas
+pyodbc
+aiohttp
+azure-ai-vision-imageanalysis
+semantic-kernel
+semantic-kernel[azure]

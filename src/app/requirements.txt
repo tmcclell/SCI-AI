@@ -1,0 +1,15 @@
+streamlit
+pydantic
+python-dotenv
+azure-ai-projects
+azure-identity
+uvicorn
+gunicorn
+pandas
+numpy
+pypdf
+azure-core
+azure-search-documents
+openai
+pyodbc
+PyPDF2
