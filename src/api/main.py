@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List
+import uvicorn
 
 # Load environment variables from the .env file
 load_dotenv()

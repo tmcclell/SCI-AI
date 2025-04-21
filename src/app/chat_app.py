@@ -5,12 +5,18 @@ import requests
 import time
 import re
 import streamlit.components.v1 as components
+import os
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.vision.imageanalysis import ImageAnalysisClient
+import PyPDF2
 
 # Load environment variables
 load_dotenv(override=True)
 
 # Endpoints from environment variables
 AGENT_ENDPOINT = 'http://127.0.0.1:8005'
+AZURE_COMPUTER_VISION_ENDPOINT = os.getenv("AZURE_COMPUTER_VISION_ENDPOINT")
+AZURE_COMPUTER_VISION_KEY = os.getenv("AZURE_COMPUTER_VISION_KEY")
 
 # Initialize session state
 if "messages" not in st.session_state:
@@ -138,11 +144,44 @@ def force_mathjax_typeset():
             }
         } else {
             console.warn('MathJax not loaded yet');
-        }
         </script>
         """,
         height=0,
     )
+
+# Function to extract text from images using Azure AI Vision Image Analysis
+# Reference: https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/quickstarts-sdk/image-analysis-client-library?tabs=python
+
+def extract_text_from_image(image_file):
+    try:
+        client = ImageAnalysisClient(
+            endpoint=AZURE_COMPUTER_VISION_ENDPOINT,
+            credential=AzureKeyCredential(AZURE_COMPUTER_VISION_KEY)
+        )
+        image_bytes = image_file.read()
+        result = client.analyze(
+            image_data=image_bytes,
+            visual_features=["read"]
+        )
+        if result.read and result.read.blocks:
+            text = " ".join([line.text for block in result.read.blocks for line in block.lines])
+            return text
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Error extracting text from image: {str(e)}")
+        return None
+
+# Function to extract text from PDF using PyPDF2
+def extract_text_from_pdf(pdf_file):
+    try:
+        pdf_file.seek(0)
+        reader = PyPDF2.PdfReader(pdf_file)
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        return text.strip() if text else None
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return None
 
 # Call MathJax initialization
 init_mathjax()
@@ -154,6 +193,78 @@ for message in st.session_state.messages:
 
 # Force typeset after displaying all messages
 force_mathjax_typeset()
+
+# File upload section
+uploaded_file = st.file_uploader("Upload a PDF or Image", type=["pdf", "png", "jpg", "jpeg"])
+
+user_input = None  # Ensure user_input is always defined
+
+if uploaded_file:
+    file_type = uploaded_file.type
+    if file_type == "application/pdf":
+        extracted_text = extract_text_from_pdf(uploaded_file)
+        if extracted_text:
+            st.write("Extracted Text from PDF:", extracted_text[:1000] + ("..." if len(extracted_text) > 1000 else ""))
+            user_input = f"Analyze this extracted text from PDF: {extracted_text}"
+        else:
+            st.error("No text could be extracted from the PDF.")
+    elif file_type in ["image/png", "image/jpeg"]:
+        extracted_text = extract_text_from_image(uploaded_file)
+        if extracted_text:
+            st.write("Extracted Text from Image:", extracted_text)
+            user_input = f"Analyze this extracted text from image: {extracted_text}"
+        else:
+            st.error("No text could be extracted from the image.")
+    else:
+        st.error("Unsupported file type. Please upload a PDF or an image.")
+
+    if user_input:
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        with st.chat_message("user"):
+            st.markdown(user_input)
+        # Create a placeholder for the assistant's response
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+            full_response = ""
+
+            try:
+                # Show a status while processing
+                message_placeholder.markdown("Processing your request...", unsafe_allow_html=True)
+
+                # Stream the response
+                with requests.post(
+                    f"{AGENT_ENDPOINT}/chat",
+                    json={"messages": [user_input]},
+                    stream=True
+                ) as response:
+                    response.raise_for_status()
+
+                    # Use an iterator for the response content
+                    for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+                        if chunk:
+                            full_response += chunk
+                            # Format with MathJax support
+                            formatted_response = process_latex(full_response)
+                            message_placeholder.markdown(formatted_response + "▌", unsafe_allow_html=True)
+
+                            # Force MathJax typesetting each time content is updated
+                            force_mathjax_typeset()
+                            time.sleep(0.01)  # Small delay for smoother appearance
+
+                    # Final update without the cursor
+                    formatted_response = process_latex(full_response)
+                    message_placeholder.markdown(formatted_response, unsafe_allow_html=True)
+
+                    # Final typesetting to ensure all math is rendered
+                    force_mathjax_typeset()
+
+            except Exception as e:
+                st.error(f"Error communicating with the agent: {str(e)}")
+                full_response = f"Error: {str(e)}"
+                message_placeholder.markdown(full_response)
+
+            # Add assistant response to chat history
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 # Chat input
 TASK = "calculate the Software Carbon Intensity (SCI) for a software application."
