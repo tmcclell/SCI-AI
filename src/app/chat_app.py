@@ -36,7 +36,7 @@ st.set_page_config(
 st.title("Azure AI Agent Demos")
 
 st.subheader("Sustainable AI Agent")
-st.text('Agent to help developers understand the impact of their code on the environment using semantic kernel and multi agent design patterns.')
+st.text('Solution to help developers understand the impact of their code on the environment.')
 
 # Initialize MathJax with auto-rendering and better configuration
 def init_mathjax():
@@ -284,9 +284,6 @@ col1, col2 = st.columns([1, 3])
 with col1:
     example_clicked = st.button("Send Example SCI Task")
     
-with col2:
-    st.write("Or type your own query:")
-
 # New chat input field
 chat_input = st.chat_input("Type your message here...")
 
