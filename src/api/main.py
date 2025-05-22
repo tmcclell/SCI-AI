@@ -66,7 +66,7 @@ async def process_chat(messages):
 
         chat = AgentGroupChat(
             agents=[agent_assistant, agent_energy, agent_embodied],
-            termination_strategy=ApprovalTerminationStrategy(agents=(agent_assistant, agent_energy, agent_embodied), maximum_iterations=2),
+            termination_strategy=ApprovalTerminationStrategy(agents=(agent_assistant, agent_energy, agent_embodied), maximum_iterations=1),
         )
 
         try:

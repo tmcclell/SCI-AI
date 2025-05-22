@@ -11,3 +11,6 @@ aiohttp
 azure-ai-vision-imageanalysis
 semantic-kernel
 semantic-kernel[azure]
+httpx
+foundry-local-sdk
+openai
