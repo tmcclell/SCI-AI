@@ -316,13 +316,17 @@ if user_input:
             with requests.post(
                 f"{AGENT_ENDPOINT}/chat",
                 json={"messages": [{"role": "user", "content": user_input}]},
+                timeout=300,  # Increased timeout for long responses
                 stream=True
             ) as response:
                 response.raise_for_status()
                 
                 # Use an iterator for the response content
+                chunk_count = 0
                 for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
                     if chunk:
+                        chunk_count += 1
+                        print(f"[DEBUG] Received chunk {chunk_count}: '{chunk[:40]}' (length: {len(chunk)})")
                         full_response += chunk
                         # Format with MathJax support
                         formatted_response = process_latex(full_response)
@@ -331,7 +335,7 @@ if user_input:
                         # Force MathJax typesetting each time content is updated
                         force_mathjax_typeset()
                         time.sleep(0.01)  # Small delay for smoother appearance
-                
+                print(f"[DEBUG] Final response length: {len(full_response)}")
                 # Final update without the cursor
                 formatted_response = process_latex(full_response)
                 message_placeholder.markdown(formatted_response, unsafe_allow_html=True)

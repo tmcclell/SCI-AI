@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 import uvicorn
+import logging
 
 class Message(BaseModel):
     role: str
@@ -17,7 +18,7 @@ app = FastAPI()
 
 # By using an alias, the most suitable model will be downloaded
 # to your end-user's device.
-alias = "Phi-3.5-mini-instruct-cuda-gpu"
+alias = "Phi-4-mini-reasoning-cuda-gpu"
 
 # Create a FoundryLocalManager instance. This will start the Foundry
 # Local service if it is not already running and load the specified model.
@@ -33,17 +34,28 @@ client = openai.OpenAI(
 
 @app.post("/chat")
 async def chat_endpoint(request: ChatRequest):
+    logging.basicConfig(level=logging.DEBUG)
     def generate():
-        # Use the messages from the request, not hardcoded
         messages = request.messages
-        stream = client.chat.completions.create(
-            model=manager.get_model_info(alias).id,
-            messages=[{"role": m.role, "content": m.content} for m in messages],
-            stream=True,
-        )
-        for chunk in stream:
-            if chunk.choices[0].delta.content is not None:
-                yield chunk.choices[0].delta.content
+        logging.debug(f"Received messages: {messages}")
+        total_sent = 0
+        try:
+            stream = client.chat.completions.create(
+                model=manager.get_model_info(alias).id,
+                messages=[{"role": m.role, "content": m.content} for m in messages],
+                stream=True,
+                max_tokens=2048,  # Explicitly set a higher max_tokens
+            )
+            logging.debug("Streaming response started.")
+            for chunk in stream:
+                logging.debug(f"Chunk: {chunk}")
+                if chunk.choices[0].delta.content is not None:
+                    total_sent += len(chunk.choices[0].delta.content)
+                    yield chunk.choices[0].delta.content
+            logging.debug(f"Streaming response ended. Total sent: {total_sent}")
+        except Exception as e:
+            logging.error(f"Error during streaming: {e}")
+            yield f"[ERROR]: {e}"
     return StreamingResponse(generate(), media_type="text/plain")
 
 if __name__ == "__main__":
