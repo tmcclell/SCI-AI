@@ -234,7 +234,7 @@ if uploaded_file:
                 # Stream the response
                 with requests.post(
                     f"{AGENT_ENDPOINT}/chat",
-                    json={"messages": [user_input]},
+                    json={"messages": [{"role": "user", "content": user_input}]},
                     stream=True
                 ) as response:
                     response.raise_for_status()
@@ -315,7 +315,7 @@ if user_input:
             # Stream the response
             with requests.post(
                 f"{AGENT_ENDPOINT}/chat",
-                json={"messages": [user_input]},
+                json={"messages": [{"role": "user", "content": user_input}]},
                 stream=True
             ) as response:
                 response.raise_for_status()
